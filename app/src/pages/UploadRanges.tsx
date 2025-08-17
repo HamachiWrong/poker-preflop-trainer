@@ -1,38 +1,78 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { parseExcelArrayBuffer } from "../lib/parseRanges";
 import { useStore } from "../state/store";
 import { useNavigate } from "react-router-dom";
 
 export default function UploadRanges() {
-  const [status, setStatus] = useState<string>("Excel（Preflop_Ranges_Final.xlsx）を選択してください");
+  const [mode, setMode] = useState<'rfi'|'vs_open'>('rfi');
+  const allowed = useStore(s => s.allowed);
   const setAllowed = useStore(s => s.setAllowed);
+  const setStudyFilter = useStore(s => s.setStudyFilter);
   const nav = useNavigate();
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setStatus("解析中…");
-    const buf = await file.arrayBuffer();
-    const allowed = await parseExcelArrayBuffer(buf);
-    setAllowed(allowed);
-    setStatus(`OK: 読み込み成功（定義 ${Object.keys(allowed).length} 件）`);
+  async function ensureDefaultLoaded() {
+    if (allowed) return;
+    const url = `${import.meta.env.BASE_URL}Preflop_Ranges_Default.xlsx`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+    const buf = await res.arrayBuffer();
+    const a = await parseExcelArrayBuffer(buf);
+    setAllowed(a);
+  }
+
+  useEffect(() => {
+    // 初回にバックグラウンドでデフォルト読込（UIには表示しない）
+    ensureDefaultLoaded().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function start() {
+    try {
+      await ensureDefaultLoaded(); // まだならここで確実に読み込み
+      setStudyFilter(mode === 'rfi' ? { kind: 'unopened' } : { kind: 'vs_open' });
+      nav("/play");
+    } catch (e) {
+      alert("デフォルトデータの読み込みに失敗しました。通信環境を確認してください。");
+    }
   }
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-bold">Poker Preflop Trainer</h1>
-      <div className="p-4 rounded-2xl bg-white shadow">
-        <p className="mb-3 text-sm text-zinc-600">{status}</p>
-        <input type="file" accept=".xlsx" onChange={onFile} className="block w-full" />
+
+      <div className="p-4 rounded-2xl bg-white shadow space-y-4">
+        <div>
+          <label className="block text-sm mb-1">学習モード</label>
+          <div className="flex gap-3">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="mode"
+                value="rfi"
+                checked={mode === 'rfi'}
+                onChange={() => setMode('rfi')}
+              />
+              <span>RFI（未オープン）</span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="mode"
+                value="vs_open"
+                checked={mode === 'vs_open'}
+                onChange={() => setMode('vs_open')}
+              />
+              <span>VsOpen（対オープン）</span>
+            </label>
+          </div>
+        </div>
+
         <button
-          className="mt-4 px-4 py-2 rounded-lg bg-black text-white disabled:opacity-40"
-          onClick={() => nav("/play")}
+          className="px-4 py-2 rounded-lg bg-black text-white"
+          onClick={start}
         >
           プレイ開始
         </button>
-        <p className="mt-3 text-xs text-zinc-500">
-          * 判定はセル文字列の集合（R/C/F）。RFIはR/Fのみ、VsOpenはR/C/F。AA/KKのFは無効化。
-        </p>
       </div>
     </div>
   );

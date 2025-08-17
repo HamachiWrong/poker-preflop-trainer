@@ -4,33 +4,34 @@ import type { Action } from "../lib/types";
 
 export default function Play() {
   const { question, nextQuestion, answer } = useStore();
+  const studyFilter = useStore(s => s.studyFilter); // ← 追加
   const [feedback, setFeedback] = useState<null | {correct:boolean; allowed:Set<Action>}>(null);
 
   useEffect(() => {
-    if (!question) nextQuestion();
-  }, [question, nextQuestion]);
+    if (!question) nextQuestion(studyFilter ?? undefined); // ← 追加
+  }, [question, nextQuestion, studyFilter]);               // ← 依存に追加
 
   if (!question) {
     return (
       <div className="p-6 max-w-xl mx-auto">
-        <p>問題を生成中…（Excelが読み込まれていない場合は「戻る」でアップロードしてください）</p>
+        <p>問題を生成中…（初回は数秒かかることがあります）</p>
         <a className="text-blue-600 underline" href="/">戻る</a>
       </div>
     );
-  }
+  }  
 
   const { scenario, hand } = question;
   const title = scenario.kind === "unopened"
     ? `${scenario.hero} (RFI) / ${hand}`
     : `${scenario.hero} vs ${scenario.opener} / ${hand}`;
 
-  const buttons: {label:string; action: Action}[] =
+  const buttons =
     scenario.kind === "unopened"
-      ? [{label:"Raise (3bb)", action:"raise"}, {label:"Fold", action:"fold"}]
+      ? [{label:"Raise (3bb)", action:"raise" as const}, {label:"Fold", action:"fold" as const}]
       : [
-          {label:"3bet (Raise)", action:"raise"},
-          {label:"Call", action:"call"},
-          {label:"Fold", action:"fold"},
+          {label:"3bet (Raise)", action:"raise" as const},
+          {label:"Call", action:"call" as const},
+          {label:"Fold", action:"fold" as const},
         ];
 
   function pick(a: Action) {
@@ -41,7 +42,7 @@ export default function Play() {
 
   function next() {
     setFeedback(null);
-    nextQuestion();
+    nextQuestion(studyFilter ?? undefined); // ← 追加
   }
 
   return (
