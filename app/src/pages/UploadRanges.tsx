@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { parseExcelArrayBuffer } from "../lib/parseRanges";
 import { useStore } from "../state/store";
 import { useNavigate } from "react-router-dom";
+import Header from "../components/Header";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
 
 export default function UploadRanges() {
   const [mode, setMode] = useState<'rfi'|'vs_open'>('rfi');
@@ -21,59 +24,42 @@ export default function UploadRanges() {
   }
 
   useEffect(() => {
-    // 初回にバックグラウンドでデフォルト読込（UIには表示しない）
     ensureDefaultLoaded().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function start() {
     try {
-      await ensureDefaultLoaded(); // まだならここで確実に読み込み
+      await ensureDefaultLoaded();
       setStudyFilter(mode === 'rfi' ? { kind: 'unopened' } : { kind: 'vs_open' });
       nav("/play");
-    } catch (e) {
-      alert("デフォルトデータの読み込みに失敗しました。通信環境を確認してください。");
+    } catch {
+      alert("デフォルトデータの読み込みに失敗しました。通信環境をご確認ください。");
     }
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Poker Preflop Trainer</h1>
-
-      <div className="p-4 rounded-2xl bg-white shadow space-y-4">
-        <div>
-          <label className="block text-sm mb-1">学習モード</label>
-          <div className="flex gap-3">
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="mode"
-                value="rfi"
-                checked={mode === 'rfi'}
-                onChange={() => setMode('rfi')}
-              />
-              <span>RFI（未オープン）</span>
-            </label>
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="mode"
-                value="vs_open"
-                checked={mode === 'vs_open'}
-                onChange={() => setMode('vs_open')}
-              />
-              <span>VsOpen（対オープン）</span>
-            </label>
+    <div className="body-bg">
+      <Header />
+      <main className="max-w-xl mx-auto px-6 py-8 space-y-6">
+        <h1 className="text-3xl font-extrabold">Poker Preflop Trainer</h1>
+        <Card className="space-y-4">
+          <div>
+            <label className="block text-sm mb-1 text-zinc-700">学習モード</label>
+            <div className="flex gap-3">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="mode" value="rfi" checked={mode==='rfi'} onChange={() => setMode('rfi')} />
+                <span>RFI（未オープン）</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="mode" value="vs_open" checked={mode==='vs_open'} onChange={() => setMode('vs_open')} />
+                <span>VsOpen（対オープン）</span>
+              </label>
+            </div>
           </div>
-        </div>
-
-        <button
-          className="px-4 py-2 rounded-lg bg-black text-white"
-          onClick={start}
-        >
-          プレイ開始
-        </button>
-      </div>
+          <Button onClick={start}>プレイ開始</Button>
+        </Card>
+      </main>
     </div>
   );
 }
