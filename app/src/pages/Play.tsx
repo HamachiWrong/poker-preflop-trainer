@@ -8,6 +8,7 @@ import CardShell from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import HandCard from "../components/poker/HandCard";
 import RangeGrid from "../components/poker/RangeGrid";
+import { buildRangeMatrixForScenario, buildRfiMatrixForPos, fetchAdvice, summarizeScenario } from "../lib/advice";
 // レイザーのカード/チップは表示しないのでインポート不要
 // import ChipStack from "../components/poker/ChipStack";
 
@@ -85,6 +86,8 @@ export default function Play() {
   const studyFilter = useStore(s => s.studyFilter);
   const [feedback, setFeedback] = useState<null | { correct: boolean; allowed: Set<Action> }>(null);
   const [selectedAction, setSelectedAction] = useState<Action | null>(null);
+  const [advice, setAdvice] = useState<string>("");
+  const [adviceLoading, setAdviceLoading] = useState<boolean>(false);
 
   // ブラウザ更新などで /play に直アクセスした場合：
   // 1) 即座に初期画面のUIをレンダリング（白画面を避ける）
@@ -162,7 +165,25 @@ export default function Play() {
   function next() {
     setFeedback(null);
     setSelectedAction(null);
+    setAdvice("");
     nextQuestion(studyFilter ?? undefined);
+  }
+
+  async function askAdvice() {
+    try {
+      if (!allowed || !question || !selectedAction) return;
+      setAdvice("");
+      setAdviceLoading(true);
+      const matrix = buildRangeMatrixForScenario(allowed, scenario);
+      const openerRfi = scenario.kind === "vs_open" ? buildRfiMatrixForPos(allowed, scenario.opener) : undefined;
+      const summary = summarizeScenario(allowed, scenario, hand, openerRfi);
+      const text = await fetchAdvice({ scenario, hand, userAction: selectedAction, rangeMatrix: matrix, openerRfiMatrix: openerRfi, summary });
+      setAdvice(text);
+    } catch (e) {
+      setAdvice(e instanceof Error ? `取得失敗: ${e.message}` : "取得失敗（詳細不明）");
+    } finally {
+      setAdviceLoading(false);
+    }
   }
 
   const neighborList = neighborsFrom(scenario.hero);
@@ -281,13 +302,27 @@ export default function Play() {
           {feedback && (
             <div className={`mt-4 p-3 rounded-xl border ${feedback.correct ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}>
               <p className="font-semibold">{feedback.correct ? "✅ 正解！" : "❌ 不正解"}</p>
-              <div className="mt-3 flex justify-center">
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
                 <Button onClick={next} className="min-w-[160px]">次の問題へ</Button>
+                <Button
+                  onClick={askAdvice}
+                  variant={adviceLoading ? "ghost" : "primary"}
+                  className={`min-w-[160px] ${adviceLoading ? "bg-zinc-200 text-zinc-700 hover:bg-zinc-200 border border-zinc-300 cursor-default" : ""}`}
+                  disabled={!selectedAction || adviceLoading}
+                >
+                  {adviceLoading ? "ちょっと待ってね" : "解説を見てみる"}
+                </Button>
               </div>
 
               <div className="mt-4 overflow-auto">
                 <RangeGrid allowedMap={allowed!} scenario={scenario} highlightHand={hand} />
               </div>
+
+              {advice && (
+                <div className="mt-4 p-3 rounded-lg bg-white/70 border border-zinc-200 text-zinc-800 text-sm">
+                  {advice}
+                </div>
+              )}
             </div>
           )}
         </CardShell>

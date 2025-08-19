@@ -10,4 +10,12 @@ export default defineConfig({
     outDir: '../docs',     // ルート配下に docs/ を作る
     emptyOutDir: true,     // 毎回ビルド時に docs/ を空にする
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      }
+    }
+  }
 })
