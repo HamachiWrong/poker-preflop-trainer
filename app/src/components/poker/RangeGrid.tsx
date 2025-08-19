@@ -1,16 +1,11 @@
 import type { AllowedMap, Action, Scenario } from "../../lib/types";
-import { ranks, handKeyFromIJ, keyOf } from "../../lib/types";
+import { ranks, handKeyFromIJ } from "../../lib/types";
 
 type Props = {
   allowedMap: AllowedMap;
   scenario: Scenario;
   highlightHand?: string; // e.g., "AKs"
 };
-
-function actionsKey(acts: Set<Action>): string {
-  const order: Action[] = ["raise", "call", "fold"];
-  return order.filter(a => acts.has(a)).join("/");
-}
 
 function colorForActions(acts: Set<Action>): string {
   const a = actsKeyed(acts);
@@ -57,7 +52,7 @@ export default function RangeGrid({ allowedMap, scenario, highlightHand }: Props
         {ranks.map((ri, i) => (
           <>
             <div key={"left-"+ri} className="text-[11px] font-semibold text-zinc-600 px-1 py-0.5">{ri}</div>
-            {ranks.map((rj, j) => {
+            {ranks.map((_, j) => {
               const hand = handKeyFromIJ(i, j);
               const key = scenarioPrefix + hand;
               const acts = allowedMap[key] ?? new Set<Action>(["fold"] as Action[]);
