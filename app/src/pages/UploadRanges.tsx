@@ -11,32 +11,37 @@ export default function UploadRanges() {
   const allowed = useStore(s => s.allowed);
   const setAllowed = useStore(s => s.setAllowed);
   const setStudyFilter = useStore(s => s.setStudyFilter);
+  const nextQuestion = useStore(s => s.nextQuestion);
   const nav = useNavigate();
 
   async function ensureDefaultLoaded() {
-    if (allowed) return;
-    const url = `${import.meta.env.BASE_URL}Preflop_Ranges_Default.xlsx`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+    if (allowed) return; // 既に読み込み済み
+    const res = await fetch('/poker-preflop-trainer/Preflop_Ranges_Default.xlsx');
+    if (!res.ok) throw new Error('default fetch failed');
     const buf = await res.arrayBuffer();
-    const a = await parseExcelArrayBuffer(buf);
-    setAllowed(a);
+    const parsed = await parseExcelArrayBuffer(buf);
+    setAllowed(parsed);
   }
-
-  useEffect(() => {
-    ensureDefaultLoaded().catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function start() {
     try {
       await ensureDefaultLoaded();
-      setStudyFilter(mode === 'rfi' ? { kind: 'unopened' } : { kind: 'vs_open' });
-      nav("/play");
-    } catch {
-      alert("デフォルトデータの読み込みに失敗しました。通信環境をご確認ください。");
+      const filter = mode === 'rfi' ? { kind: 'unopened' as const } : { kind: 'vs_open' as const };
+      setStudyFilter(filter);
+      // 即時にそのモードで1問引いてから /play へ（Play側でも上書きするので二重でも安全）
+      nextQuestion(filter);
+      nav('/play');
+    } catch (e) {
+      alert('デフォルトデータの読み込みに失敗しました。通信環境をご確認ください。');
+      console.error(e);
     }
   }
+
+  useEffect(() => {
+    // 表示時に静かにプリロード（失敗は無視）
+    ensureDefaultLoaded().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="body-bg">
@@ -57,7 +62,10 @@ export default function UploadRanges() {
               </label>
             </div>
           </div>
-          <Button onClick={start}>プレイ開始</Button>
+
+          <div className="flex justify-center">
+            <Button onClick={start}>プレイ開始</Button>
+          </div>
         </Card>
       </main>
     </div>

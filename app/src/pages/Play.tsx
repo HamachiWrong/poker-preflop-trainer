@@ -5,54 +5,65 @@ import Header from "../components/Header";
 import CardShell from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import HandCard from "../components/poker/HandCard";
-import CardBackPair from "../components/poker/CardBackPair";
-import ChipStack from "../components/poker/ChipStack";
+// レイザーのカード/チップは表示しないのでインポート不要
+// import ChipStack from "../components/poker/ChipStack";
 
-/** 6-maxの席順（必ずこの時計回りを守る） */
+/** 6-maxの席順（時計回り） */
 const ORDER: Array<Scenario["hero"]> = ["UTG", "HJ", "CO", "BTN", "SB", "BB"];
 
-/** スロット座標（0=HERO下央、時計回りに1..5。※右→上→左へ進む=CCW表示） */
+/** 座標：0=HERO下央、右下→右上→上央→左上→左下 */
 function slotCoords(slot: 0|1|2|3|4|5) {
   const map = {
-    0: { top:"82%", left:"50%" },  // HERO
-    1: { top:"68%", left:"84%" },  // 右下（=ヒーローの右隣）
-    2: { top:"24%", left:"84%" },  // 右上
-    3: { top:"8%",  left:"50%" },  // 上央
-    4: { top:"24%", left:"16%" },  // 左上
-    5: { top:"68%", left:"16%" },  // 左下（=ヒーローの左隣）
+    0: { top:"82%", left:"50%" },
+    1: { top:"68%", left:"84%" },
+    2: { top:"24%", left:"84%" },
+    3: { top:"8%",  left:"50%" },
+    4: { top:"24%", left:"16%" },
+    5: { top:"68%", left:"16%" },
   } as const;
   return map[slot];
 }
 
-/** HEROを下央に固定。右隣=直前ポジ、左隣=直後ポジ（ご要望③） */
+/** 席の“中心→卓中心(50%,50%)”の向き（重なり防止用オフセット） */
+function dirToCenter(slot: 1|2|3|4|5) {
+  const d = {
+    1: { x: -1, y: -0.55 },
+    2: { x: -1, y:  0.55 },
+    3: { x:  0, y:  1    },
+    4: { x:  1, y:  0.55 },
+    5: { x:  1, y: -0.55 },
+  }[slot];
+  const len = Math.hypot(d.x, d.y);
+  return { x: d.x/len, y: d.y/len };
+}
+function towardCenter(slot: 1|2|3|4|5, dist: number) {
+  const v = dirToCenter(slot);
+  const dx = v.x * dist, dy = v.y * dist;
+  return { transform: `translate(-50%, -50%) translate(${dx}px, ${dy}px)` };
+}
+
+/** HERO固定で右下→右上→上央→左上→左下 */
 function neighborsFrom(hero: Scenario["hero"]) {
   const i = ORDER.indexOf(hero);
-  const prev1 = ORDER[(i - 1 + 6) % 6]; // 右下
-  const prev2 = ORDER[(i - 2 + 6) % 6]; // 右上
-  const prev3 = ORDER[(i - 3 + 6) % 6]; // 上央
-  const next2 = ORDER[(i + 2) % 6];     // 左上
-  const next1 = ORDER[(i + 1) % 6];     // 左下
-  return [prev1, prev2, prev3, next2, next1] as const; // slots 1..5
+  const prev1 = ORDER[(i - 1 + 6) % 6];
+  const prev2 = ORDER[(i - 2 + 6) % 6];
+  const prev3 = ORDER[(i - 3 + 6) % 6];
+  const next2 = ORDER[(i + 2) % 6];
+  const next1 = ORDER[(i + 1) % 6];
+  return [prev1, prev2, prev3, next2, next1] as const;
 }
 
-function dealerOffset(slot: 1|2|3|4|5) {
-  switch (slot) {
-    case 1: return { transform: "translate(-44px, -6px)" };   // 右下 → 左へ & 少し上
-    case 2: return { transform: "translate(-44px,  6px)" };   // 右上 → 左へ & 少し下
-    case 3: return { transform: "translate(0, 24px)" };       // 上央 → 下へ
-    case 4: return { transform: "translate(44px,   6px)" };   // 左上 → 右へ & 少し下
-    case 5: return { transform: "translate(44px,  -6px)" };   // 左下 → 右へ & 少し上
-  }
+/** UTG→HERO直前 までの全席 */
+function beforeHeroSet(hero: Scenario["hero"]) {
+  const set = new Set<Scenario["hero"]>();
+  let i = 0; // UTGから
+  while (ORDER[i] !== hero) { set.add(ORDER[i]); i = (i + 1) % 6; }
+  return set;
 }
 
-function chipOffset(slot: 1|2|3|4|5) {
-  switch (slot) {
-    case 1: return { transform: "translate(-36px, -2px)" };
-    case 2: return { transform: "translate(-36px,  2px)" };
-    case 3: return { transform: "translate(0,    18px)" };
-    case 4: return { transform: "translate(36px,  2px)" };
-    case 5: return { transform: "translate(36px, -2px)" };
-  }
+/** RFI：UTG→HERO直前 すべて Fold */
+function foldedBeforeHeroRFI(hero: Scenario["hero"]) {
+  return beforeHeroSet(hero);
 }
 
 const seatClass: Record<Scenario["hero"], string> = {
@@ -65,13 +76,18 @@ const seatClass: Record<Scenario["hero"], string> = {
 };
 
 export default function Play() {
+  const allowed = useStore(s => s.allowed);
   const { question, nextQuestion, answer } = useStore();
   const studyFilter = useStore(s => s.studyFilter);
   const [feedback, setFeedback] = useState<null | { correct: boolean; allowed: Set<Action> }>(null);
 
+  // 初回＆モード切替時：必ず新しい問題を引く（フック順安定）
   useEffect(() => {
-    if (!question) nextQuestion(studyFilter ?? undefined);
-  }, [question, nextQuestion, studyFilter]);
+    if (!allowed) return;
+    nextQuestion(studyFilter ?? undefined);
+    setFeedback(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, studyFilter]);
 
   if (!question) {
     return (
@@ -85,14 +101,26 @@ export default function Play() {
   }
 
   const { scenario, hand } = question;
+
+  // 表示用セット：Fold対象・レイザー
   const opener = scenario.kind === "vs_open" ? scenario.opener : null;
+
+  // === 要件①：vsOpenは「UTG→HERO直前」のうち、オープナー以外は全員 Fold ===
+  // RFI は従来どおり「UTG→HERO直前」全員 Fold
+  const foldedSet = (() => {
+    if (scenario.kind === "unopened") return foldedBeforeHeroRFI(scenario.hero);
+    if (!opener) return new Set<Scenario["hero"]>();
+    const set = beforeHeroSet(scenario.hero);
+    set.delete(opener); // オープナーはFoldではなくRaise表記
+    return set;
+  })();
 
   // タイトル
   const title = scenario.kind === "unopened"
     ? `${scenario.hero} / ${hand}`
     : `${scenario.hero} (Hero) vs ${scenario.opener} / ${hand}`;
 
-  // アクション（2択時は中央寄せにする）
+  // アクション
   const actions = scenario.kind === "unopened"
     ? [
         { label: "Raise (2.5bb)", action: "raise" as const },
@@ -114,7 +142,6 @@ export default function Play() {
     nextQuestion(studyFilter ?? undefined);
   }
 
-  // 並び：HERO下央、1..5は（右下→右上→上→左上→左下）＝ご要望③
   const neighborList = neighborsFrom(scenario.hero);
 
   return (
@@ -127,7 +154,7 @@ export default function Play() {
         <div className="relative mx-auto w-full max-w-3xl h-80 md:h-[28rem]">
           <div className="poker-table w-full h-full"></div>
 
-          {/* slot0: HERO（下央） */}
+          {/* HERO */}
           {(() => {
             const c = slotCoords(0);
             return (
@@ -141,58 +168,78 @@ export default function Play() {
             );
           })()}
 
-          {/* slot1..5: 他席（BTNにDボタン、オープナー席はカード裏＋バッジ内チップ） */}
+          {/* 他席 */}
           {neighborList.map((pos, idx) => {
             const slot = (idx + 1) as 1|2|3|4|5;
             const c = slotCoords(slot);
             const isBTN = pos === "BTN";
+            const isSB  = pos === "SB";
+            const isBB  = pos === "BB";
             const isOpener = opener === pos;
+            const isFolded = foldedSet.has(pos);
+
+            const badgeClass = isFolded ? "seat-badge seat-fold" : seatClass[pos];
+
+            // SB/BB のブラインド表記は常時。ただし「SBがレイズ=opener」のときは 0.5BB を隠す
+            const showSBBlind = isSB && !(scenario.kind === "vs_open" && isOpener);
+            const showBBBlind = isBB; // BBは常時
+
             return (
               <div
                 key={pos}
                 className="absolute"
                 style={{ top: c.top, left: c.left, transform: "translate(-50%, -50%)" }}
               >
-                {/* ポジションの丸バッジ */}
-                <div className="relative z-10 flex flex-col items-center gap-1">
-                  <div className={`${seatClass[pos]} select-none`}>{pos}</div>
+                {/* バッジ */}
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className={`${badgeClass} select-none`}>{pos}</div>
+
+                  {/* 要件②：バッジ下のテキスト（Fold / Raise） */}
+                  {isFolded && (
+                    <div className="mt-1 text-[11px] text-zinc-200/90 font-semibold drop-shadow">
+                      {pos} Fold
+                    </div>
+                  )}
+                  {isOpener && scenario.kind === "vs_open" && (
+                    <div className="mt-1 text-[11px] text-amber-300 font-semibold drop-shadow">
+                      {pos} Raise
+                    </div>
+                  )}
                 </div>
-            
-                {/* チップ：席より“手前・中央側”に（重ならない＆z順で前） */}
-                {isOpener && (
-                  <div
-                    className="pointer-events-none absolute z-20 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                    style={chipOffset(slot)}
-                  >
-                    <ChipStack />
+
+                {/* SB/BB blind ラベル */}
+                {showSBBlind && (
+                  <div className="pointer-events-none absolute z-25 left-1/2 top-1/2" style={towardCenter(slot, 72)}>
+                    <span className="bb-label">0.5BB</span>
                   </div>
                 )}
-            
-                {/* カード裏：席の少し上に（微重なりOK） */}
-                {isOpener && (
-                  <div className="pointer-events-none absolute z-20 left-1/2 -translate-x-1/2 -translate-y-[58px]">
-                    <CardBackPair size="sm" />
+                {showBBBlind && (
+                  <div className="pointer-events-none absolute z-25 left-1/2 top-1/2" style={towardCenter(slot, 72)}>
+                    <span className="bb-label">1BB</span>
                   </div>
                 )}
-            
-                {/* Dealer（BTN）：席と重ならないよう中央寄りに */}
+
+                {/* 要件③：オープナーは 2.5BB ラベルのみ（カード/チップは表示しない） */}
+                {isOpener && scenario.kind === "vs_open" && (
+                  <div className="pointer-events-none absolute z-25 left-1/2 top-1/2" style={towardCenter(slot, 72)}>
+                    <span className="bb-label">2.5BB</span>
+                  </div>
+                )}
+
+                {/* BTN（D） */}
                 {isBTN && (
-                  <div
-                    className="pointer-events-none absolute z-30 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                    style={dealerOffset(slot)}
-                  >
+                  <div className="pointer-events-none absolute z-50 left-1/2 top-1/2" style={towardCenter(slot, 60)}>
                     <div className="dealer-chip">D</div>
                   </div>
                 )}
               </div>
             );
-            
           })}
         </div>
 
-        {/* アクション（2択は中央寄せ） */}
+        {/* アクション */}
         <CardShell>
-          <div className={`action-row`}>
+          <div className="action-row">
             {actions.map(b => (
               <Button key={b.action} onClick={() => pick(b.action)} className="min-w-[150px]">
                 {b.label}
