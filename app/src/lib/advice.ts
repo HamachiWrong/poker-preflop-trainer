@@ -1,6 +1,15 @@
 import type { AllowedMap, Action, Scenario } from "./types";
 import { handKeyFromIJ } from "./types";
 
+let API_BASE = import.meta.env.VITE_ADVICE_API ?? "";
+if (!API_BASE && typeof window !== "undefined") {
+  const host = window.location.hostname;
+  if (/github\.io$/i.test(host)) {
+    API_BASE = "https://poker-preflop-trainer-advice.hamachiwrong.workers.dev";
+  }
+}
+const ADVICE_URL = API_BASE ? `${API_BASE.replace(/\/$/, "")}/api/advice` : "/api/advice";
+
 export type AdviceRequest = {
   scenario: Scenario;
   hand: string; // e.g., "AKs"
@@ -21,7 +30,7 @@ export type AdviceSummary = {
 };
 
 export async function fetchAdvice(params: AdviceRequest): Promise<string> {
-  const res = await fetch("/api/advice", {
+  const res = await fetch(ADVICE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
