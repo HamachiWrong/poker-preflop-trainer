@@ -170,3 +170,32 @@ html, body, #root { height: 100%; }
   border-radius:9999px;
   background: radial-gradient(circle at 40% 35%, rgba(255,255,255,.45), rgba(255,255,255,0) 55%);
 }
+
+/* === Hero animations for start screen === */
+@keyframes floatY {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+@keyframes floatYSm {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-5px); }
+}
+.anim-float {
+  animation: floatY 3.2s ease-in-out infinite alternate;
+}
+.anim-float-delay {
+  animation: floatY 3.2s ease-in-out infinite alternate;
+  animation-delay: .8s;
+}
+.anim-float-sm {
+  animation: floatYSm 2.6s ease-in-out infinite alternate;
+}
+
+/* === Blink border for highlighting a hand cell === */
+@keyframes blinkOutline {
+  0%, 100% { box-shadow: 0 0 0 2px #facc15, 0 0 0 6px rgba(250, 204, 21, .35); }
+  50% { box-shadow: 0 0 0 2px rgba(250, 204, 21, .15), 0 0 0 6px rgba(250, 204, 21, 0); }
+}
+.blink-outline {
+  animation: blinkOutline 1.15s ease-in-out infinite;
+}

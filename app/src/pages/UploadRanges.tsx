@@ -46,27 +46,68 @@ export default function UploadRanges() {
   return (
     <div className="body-bg">
       <Header />
-      <main className="max-w-xl mx-auto px-6 py-8 space-y-6">
-        <h1 className="text-3xl font-extrabold">Poker Preflop Trainer</h1>
-        <Card className="space-y-4">
+      <main className="mx-auto max-w-5xl px-6 py-10 md:py-14">
+        {/* Hero */}
+        <section className="relative grid md:grid-cols-2 gap-8 items-center">
           <div>
-            <label className="block text-sm mb-1 text-zinc-700">学習モード</label>
-            <div className="flex gap-3">
-              <label className="inline-flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="mode" value="rfi" checked={mode==='rfi'} onChange={() => setMode('rfi')} />
-                <span>RFI（未オープン）</span>
-              </label>
-              <label className="inline-flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="mode" value="vs_open" checked={mode==='vs_open'} onChange={() => setMode('vs_open')} />
-                <span>VsOpen（対オープン）</span>
-              </label>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+              Poker Preflop Trainer
+            </h1>
+            <p className="mt-4 text-zinc-700 leading-relaxed">
+              プリフロップに特化した最短学習。強い基礎が、勝率を変える。
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Button onClick={start}>
+                プレイ開始
+              </Button>
             </div>
           </div>
 
-          <div className="flex justify-center">
-            <Button onClick={start}>プレイ開始</Button>
+          {/* Animated preview */}
+          <div className="relative h-64 md:h-72">
+            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-b from-emerald-200/50 to-emerald-500/30 blur-2xl"></div>
+            <div className="absolute inset-0 rounded-[28px] bg-white/60 backdrop-blur border border-white/70 shadow-[0_20px_40px_rgba(0,0,0,.15)]"></div>
+
+            {/* table preview */}
+            <div className="absolute inset-4 rounded-[26px] overflow-hidden">
+              <div className="poker-table w-full h-full"></div>
+            </div>
+
+            {/* floating elements */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              {/* two hand cards */}
+              <div className="relative w-[160px] h-[120px]">
+                <div className="card-3d black absolute left-8 top-6 rotate-[-14deg] anim-float"></div>
+                <div className="card-3d red absolute left-20 top-10 rotate-[12deg] anim-float-delay"></div>
+                {/* chip */}
+                <div className="chip chip-orange absolute -right-2 -bottom-1 anim-float-sm"></div>
+              </div>
+            </div>
           </div>
-        </Card>
+        </section>
+
+        {/* Controls */}
+        <section className="mt-10">
+          <Card className="space-y-4">
+            <div>
+              <label className="block text-sm mb-1 text-zinc-700">学習モード</label>
+              <div className="flex flex-wrap gap-3">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="mode" value="rfi" checked={mode==='rfi'} onChange={() => setMode('rfi')} />
+                  <span>RFI（未オープン）</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="mode" value="vs_open" checked={mode==='vs_open'} onChange={() => setMode('vs_open')} />
+                  <span>VsOpen（対オープン）</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <Button onClick={start}>プレイ開始</Button>
+            </div>
+          </Card>
+        </section>
       </main>
     </div>
   );

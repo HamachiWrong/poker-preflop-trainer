@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import UploadRanges from "./UploadRanges";
 import { useStore } from "../state/store";
 import type { Action, Scenario } from "../lib/types";
 import Header from "../components/Header";
 import CardShell from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import HandCard from "../components/poker/HandCard";
+import RangeGrid from "../components/poker/RangeGrid";
 // レイザーのカード/チップは表示しないのでインポート不要
 // import ChipStack from "../components/poker/ChipStack";
 
@@ -76,10 +79,25 @@ const seatClass: Record<Scenario["hero"], string> = {
 };
 
 export default function Play() {
+  const nav = useNavigate();
   const allowed = useStore(s => s.allowed);
   const { question, nextQuestion, answer } = useStore();
   const studyFilter = useStore(s => s.studyFilter);
   const [feedback, setFeedback] = useState<null | { correct: boolean; allowed: Set<Action> }>(null);
+  const [selectedAction, setSelectedAction] = useState<Action | null>(null);
+
+  // ブラウザ更新などで /play に直アクセスした場合：
+  // 1) 即座に初期画面のUIをレンダリング（白画面を避ける）
+  // 2) 初回ペイント後にハッシュのみ置き換え（URLも初期画面に）
+  useEffect(() => {
+    if (!allowed && window.location.hash !== "#/") {
+      window.location.replace("#/");
+    }
+  }, [allowed]);
+
+  if (!allowed) {
+    return <UploadRanges />;
+  }
 
   // 初回＆モード切替時：必ず新しい問題を引く（フック順安定）
   useEffect(() => {
@@ -93,8 +111,11 @@ export default function Play() {
     return (
       <div className="body-bg">
         <Header />
-        <main className="max-w-4xl mx-auto px-6 py-8">
+        <main className="max-w-4xl mx-auto px-6 py-8 space-y-4">
           <CardShell>問題を生成中…（初回は数秒かかることがあります）</CardShell>
+          <div className="flex justify-center">
+            <Button variant="ghost" onClick={() => nav('/')}>モード選択に戻る</Button>
+          </div>
         </main>
       </div>
     );
@@ -135,10 +156,12 @@ export default function Play() {
   function pick(a: Action) {
     const res = answer(a);
     if (!res) return;
+    setSelectedAction(a);
     setFeedback(res);
   }
   function next() {
     setFeedback(null);
+    setSelectedAction(null);
     nextQuestion(studyFilter ?? undefined);
   }
 
@@ -240,19 +263,30 @@ export default function Play() {
         {/* アクション */}
         <CardShell>
           <div className="action-row">
-            {actions.map(b => (
-              <Button key={b.action} onClick={() => pick(b.action)} className="min-w-[150px]">
-                {b.label}
-              </Button>
-            ))}
+            {actions.map(b => {
+              const isSelected = selectedAction === b.action;
+              return (
+                <Button
+                  key={b.action}
+                  onClick={() => pick(b.action)}
+                  variant={isSelected ? "ghost" : "primary"}
+                  className={`min-w-[150px] ${isSelected ? "bg-zinc-200 text-zinc-700 hover:bg-zinc-200 border border-zinc-300 cursor-default" : ""}`}
+                >
+                  {b.label}
+                </Button>
+              );
+            })}
           </div>
 
           {feedback && (
             <div className={`mt-4 p-3 rounded-xl border ${feedback.correct ? "border-green-300 bg-green-50" : "border-red-300 bg-red-50"}`}>
               <p className="font-semibold">{feedback.correct ? "✅ 正解！" : "❌ 不正解"}</p>
-              <p className="mt-1 text-sm text-zinc-700">許可アクション：{Array.from(feedback.allowed).join(" / ")}</p>
-              <div className="mt-3">
-                <Button variant="ghost" onClick={next}>次の問題へ</Button>
+              <div className="mt-3 flex justify-center">
+                <Button onClick={next} className="min-w-[160px]">次の問題へ</Button>
+              </div>
+
+              <div className="mt-4 overflow-auto">
+                <RangeGrid allowedMap={allowed!} scenario={scenario} highlightHand={hand} />
               </div>
             </div>
           )}
