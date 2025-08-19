@@ -33,6 +33,14 @@ function labelForActions(acts: Set<Action>): string {
   return parts.join("/");
 }
 
+function shortLabelForActions(acts: Set<Action>): string {
+  const parts: string[] = [];
+  if (acts.has("raise")) parts.push("R");
+  if (acts.has("call")) parts.push("C");
+  if (acts.has("fold")) parts.push("F");
+  return parts.join("/");
+}
+
 export default function RangeGrid({ allowedMap, scenario, highlightHand }: Props) {
   // 指定シナリオの全ハンドを収集（存在しない=空セルは Fold とみなす）
   const scenarioPrefix = `${scenario.kind}|${scenario.hero}|${"opener" in scenario ? (scenario as any).opener : ""}|`;
@@ -56,18 +64,21 @@ export default function RangeGrid({ allowedMap, scenario, highlightHand }: Props
               const hand = handKeyFromIJ(i, j);
               const key = scenarioPrefix + hand;
               const acts = allowedMap[key] ?? new Set<Action>(["fold"] as Action[]);
-              const bg = colorForActions(acts);
+              const bgBase = colorForActions(acts);
               const label = labelForActions(acts);
+              const short = shortLabelForActions(acts);
               const isHL = highlightHand === hand;
+              const bg = isHL ? "#000000" : bgBase;
               return (
                 <div
                   key={hand}
-                  className={`border rounded-sm flex items-center justify-center p-1 ${isHL ? 'relative z-20 blink-outline' : ''}`}
+                  className={`border rounded-sm flex items-center justify-center p-0.5 md:p-1 ${isHL ? 'relative z-20 blink-outline' : ''}`}
                   style={{ background: bg, borderColor: 'rgba(255,255,255,.3)' }}
                 >
-                  <div className="text-white text-[10px] leading-[1.05] font-bold drop-shadow text-center">
+                  <div className="text-white text-[9px] md:text-[10px] leading-[1.05] font-bold drop-shadow text-center whitespace-nowrap">
                     <div>{hand}</div>
-                    <div>{label}</div>
+                    <div className="hidden md:block">{label}</div>
+                    <div className="md:hidden">{short}</div>
                   </div>
                 </div>
               );

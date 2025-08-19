@@ -56,11 +56,7 @@ export default function UploadRanges() {
             <p className="mt-4 text-zinc-700 leading-relaxed">
               プリフロップに特化した最短学習。強い基礎が、勝率を変える。
             </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Button onClick={start}>
-                プレイ開始
-              </Button>
-            </div>
+            
           </div>
 
           {/* Animated preview */}
