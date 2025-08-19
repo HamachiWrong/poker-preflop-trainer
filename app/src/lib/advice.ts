@@ -1,5 +1,5 @@
 import type { AllowedMap, Action, Scenario } from "./types";
-import { ranks, handKeyFromIJ } from "./types";
+import { handKeyFromIJ } from "./types";
 
 export type AdviceRequest = {
   scenario: Scenario;
