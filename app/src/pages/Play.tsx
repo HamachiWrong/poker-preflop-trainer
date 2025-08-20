@@ -8,7 +8,7 @@ import CardShell from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import HandCard from "../components/poker/HandCard";
 import RangeGrid from "../components/poker/RangeGrid";
-import { buildRangeMatrixForScenario, buildRfiMatrixForPos, fetchAdvice, summarizeScenario } from "../lib/advice";
+import { buildRangeMatrixForScenario, buildRfiMatrixForPos, fetchAdvice, summarizeScenario, computeHandHeuristic, attachRankBucket, loadHandRankMatrix, deriveAllowedForHand, extractExamples } from "../lib/advice";
 // レイザーのカード/チップは表示しないのでインポート不要
 // import ChipStack from "../components/poker/ChipStack";
 
@@ -172,12 +172,22 @@ export default function Play() {
   async function askAdvice() {
     try {
       if (!allowed || !question || !selectedAction) return;
+      if (question.scenario.kind !== "vs_open") return; // RFIでは解説を出さない
       setAdvice("");
       setAdviceLoading(true);
       const matrix = buildRangeMatrixForScenario(allowed, scenario);
       const openerRfi = scenario.kind === "vs_open" ? buildRfiMatrixForPos(allowed, scenario.opener) : undefined;
       const summary = summarizeScenario(allowed, scenario, hand, openerRfi);
-      const text = await fetchAdvice({ scenario, hand, userAction: selectedAction, rangeMatrix: matrix, openerRfiMatrix: openerRfi, summary });
+      const heuristic = attachRankBucket(computeHandHeuristic(hand), hand);
+      const handRankMatrix = await loadHandRankMatrix().catch(() => null);
+      const constraints = {
+        thisHandAllowed: deriveAllowedForHand(allowed, scenario, hand),
+        examples: {
+          raise: extractExamples(matrix, 'raise', 6),
+          call: extractExamples(matrix, 'call', 6),
+        },
+      } as const;
+      const text = await fetchAdvice({ scenario, hand, userAction: selectedAction, rangeMatrix: matrix, openerRfiMatrix: openerRfi, summary, heuristic, handRankMatrix: handRankMatrix ?? undefined, constraints });
       setAdvice(text);
     } catch (e) {
       setAdvice(e instanceof Error ? `取得失敗: ${e.message}` : "取得失敗（詳細不明）");
@@ -304,21 +314,23 @@ export default function Play() {
               <p className="font-semibold">{feedback.correct ? "✅ 正解！" : "❌ 不正解"}</p>
               <div className="mt-3 flex flex-wrap justify-center gap-2">
                 <Button onClick={next} className="min-w-[160px]">次の問題へ</Button>
-                <Button
-                  onClick={askAdvice}
-                  variant={adviceLoading ? "ghost" : "primary"}
-                  className={`min-w-[160px] ${adviceLoading ? "bg-zinc-200 text-zinc-700 hover:bg-zinc-200 border border-zinc-300 cursor-default" : ""}`}
-                  disabled={!selectedAction || adviceLoading}
-                >
-                  {adviceLoading ? "ちょっと待ってね" : "解説を見てみる"}
-                </Button>
+                {scenario.kind === "vs_open" && (
+                  <Button
+                    onClick={askAdvice}
+                    variant={adviceLoading ? "ghost" : "primary"}
+                    className={`min-w-[160px] ${adviceLoading ? "bg-zinc-200 text-zinc-700 hover:bg-zinc-200 border border-zinc-300 cursor-default" : ""}`}
+                    disabled={!selectedAction || adviceLoading}
+                  >
+                    {adviceLoading ? "ちょっと待ってね" : "解説を見てみる"}
+                  </Button>
+                )}
               </div>
 
               <div className="mt-4 overflow-auto">
                 <RangeGrid allowedMap={allowed!} scenario={scenario} highlightHand={hand} />
               </div>
 
-              {advice && (
+              {advice && scenario.kind === "vs_open" && (
                 <div className="mt-4 p-3 rounded-lg bg-white/70 border border-zinc-200 text-zinc-800 text-sm">
                   {advice}
                 </div>
