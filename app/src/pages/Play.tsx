@@ -8,7 +8,7 @@ import CardShell from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import HandCard from "../components/poker/HandCard";
 import RangeGrid from "../components/poker/RangeGrid";
-import { buildRangeMatrixForScenario, buildRfiMatrixForPos, fetchAdvice, summarizeScenario, computeHandHeuristic, attachRankBucket, loadHandRankMatrix, deriveAllowedForHand, extractExamples } from "../lib/advice";
+import { fetchAdvice, summarizeScenario, deriveAllowedForHand, loadHandRankBucketFor, buildStrategyHints } from "../lib/advice";
 // レイザーのカード/チップは表示しないのでインポート不要
 // import ChipStack from "../components/poker/ChipStack";
 
@@ -175,19 +175,13 @@ export default function Play() {
       if (question.scenario.kind !== "vs_open") return; // RFIでは解説を出さない
       setAdvice("");
       setAdviceLoading(true);
-      const matrix = buildRangeMatrixForScenario(allowed, scenario);
-      const openerRfi = scenario.kind === "vs_open" ? buildRfiMatrixForPos(allowed, scenario.opener) : undefined;
-      const summary = summarizeScenario(allowed, scenario, hand, openerRfi);
-      const heuristic = attachRankBucket(computeHandHeuristic(hand), hand);
-      const handRankMatrix = await loadHandRankMatrix().catch(() => null);
+      const summary = summarizeScenario(allowed, scenario, hand);
+      const handRankBucket = await loadHandRankBucketFor(hand).catch(() => undefined);
+      const hints = buildStrategyHints(scenario, summary, hand, handRankBucket);
       const constraints = {
         thisHandAllowed: deriveAllowedForHand(allowed, scenario, hand),
-        examples: {
-          raise: extractExamples(matrix, 'raise', 6),
-          call: extractExamples(matrix, 'call', 6),
-        },
       } as const;
-      const text = await fetchAdvice({ scenario, hand, userAction: selectedAction, rangeMatrix: matrix, openerRfiMatrix: openerRfi, summary, heuristic, handRankMatrix: handRankMatrix ?? undefined, constraints });
+      const text = await fetchAdvice({ scenario, hand, userAction: selectedAction, summary, constraints, handRankBucket, hints });
       setAdvice(text);
     } catch (e) {
       setAdvice(e instanceof Error ? `取得失敗: ${e.message}` : "取得失敗（詳細不明）");
